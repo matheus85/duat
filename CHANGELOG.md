@@ -5,11 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2026-07-03
+
+First usable release: the whole synchronous resilience core.
 
 ### Added
 
-- Core contracts: `Policy`, `StateStore`, `Clock` and `Randomizer`, plus the immutable `Context`.
-- `InMemoryStore`, a process-local state store for tests, CLI scripts and single-process workers.
-- Deterministic test doubles (`FakeClock`, `FakeRandomizer`) and a shared behavioral contract test for stores.
-- Tooling baseline: PHPUnit 12, PHPStan level 9, PHP CS Fixer and GitHub Actions CI covering PHP 8.3, 8.4 and 8.5.
+- `RetryPolicy` with configurable attempts, retryable and abort exception
+  lists, an `onRetry` hook and deadline awareness: it gives up when the next
+  wait would not fit the remaining budget.
+- Backoff strategies: constant, linear and exponential with cap and full
+  jitter.
+- `CircuitBreakerPolicy` with a time-based sliding window of per-second
+  buckets, CLOSED/OPEN/HALF_OPEN transitions, cooldown, configurable
+  half-open probes and per-resource isolation.
+- `TimeoutPolicy` with honest deadline semantics: registers the deadline in
+  the context, reports late successes through an event or an exception, and
+  never pretends to interrupt blocking code.
+- `FallbackPolicy` with exception filtering, always the outermost layer.
+- `Pipeline` composing policies outside-in around an immutable `Context`.
+- Events for any optional PSR-14 dispatcher: `RetryAttempted`,
+  `CircuitOpened`, `CircuitHalfOpened`, `CircuitClosed`, `CallRejected`,
+  `DeadlineExceeded` and `FallbackExecuted`.
+- State stores sharing one behavioral contract: `InMemoryStore`,
+  `Psr16Store` (non-atomic caveats documented) and `RedisStore` (ext-redis
+  or Predis, atomic Lua increments and SET NX leases).
+- Fluent entry point `Duat::for()` with immutable builders.
+- `examples/flaky-api`: dockerized flaky API demonstrating every policy
+  live.
+
+[0.1.0]: https://github.com/matheus85/duat/releases/tag/v0.1.0
