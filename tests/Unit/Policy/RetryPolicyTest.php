@@ -23,6 +23,9 @@ use RuntimeException;
 use Throwable;
 
 #[CoversClass(RetryPolicy::class)]
+#[CoversClass(RetryAttempted::class)]
+#[CoversClass(RetryExhaustedException::class)]
+#[CoversClass(CircuitOpenException::class)]
 final class RetryPolicyTest extends TestCase
 {
     private FakeClock $clock;

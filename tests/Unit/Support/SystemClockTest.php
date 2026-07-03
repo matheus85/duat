@@ -23,10 +23,12 @@ final class SystemClockTest extends TestCase
         $clock = new SystemClock();
 
         $before = microtime(true);
-        $clock->sleep(0.001);
+        $clock->sleep(0.01);
         $elapsed = microtime(true) - $before;
 
-        self::assertGreaterThanOrEqual(0.0009, $elapsed);
+        // Windows timers can wake usleep slightly early, so the lower bound
+        // is deliberately loose.
+        self::assertGreaterThanOrEqual(0.004, $elapsed);
     }
 
     public function testSleepIgnoresNonPositiveDurations(): void
