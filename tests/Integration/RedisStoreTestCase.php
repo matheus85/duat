@@ -37,6 +37,11 @@ abstract class RedisStoreTestCase extends StateStoreContractTestCase
         return 2.5;
     }
 
+    protected function expiryGrace(): float
+    {
+        return 0.3;
+    }
+
     protected static function redisUrl(): ?string
     {
         $url = getenv('REDIS_URL');

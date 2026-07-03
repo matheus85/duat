@@ -37,6 +37,16 @@ abstract class StateStoreContractTestCase extends TestCase
         return 86_400.0;
     }
 
+    /**
+     * Extra margin added when a test crosses an expiry boundary. Fake
+     * clocks assert the exact >= boundary with zero grace; stores measured
+     * against a real clock cannot, so they add a little slack.
+     */
+    protected function expiryGrace(): float
+    {
+        return 0.0;
+    }
+
     protected function setUp(): void
     {
         $this->store = $this->createStore();
@@ -90,7 +100,7 @@ abstract class StateStoreContractTestCase extends TestCase
     {
         $this->store->set('key', 'value', ttlSeconds: $this->ttlSeconds());
 
-        $this->advanceTime((float) $this->ttlSeconds());
+        $this->advanceTime($this->ttlSeconds() + $this->expiryGrace());
 
         self::assertNull($this->store->get('key'));
     }
@@ -156,11 +166,11 @@ abstract class StateStoreContractTestCase extends TestCase
     public function testIncrementAfterExpiryStartsFromZeroWithFreshTtl(): void
     {
         $this->store->increment('counter', by: 5, ttlSeconds: $this->ttlSeconds());
-        $this->advanceTime((float) $this->ttlSeconds());
+        $this->advanceTime($this->ttlSeconds() + $this->expiryGrace());
 
         self::assertSame(1, $this->store->increment('counter', ttlSeconds: $this->ttlSeconds()));
 
-        $this->advanceTime((float) $this->ttlSeconds());
+        $this->advanceTime($this->ttlSeconds() + $this->expiryGrace());
 
         self::assertNull($this->store->get('counter'));
     }
@@ -182,7 +192,7 @@ abstract class StateStoreContractTestCase extends TestCase
     public function testSetIfNotExistsStoresAgainAfterExpiry(): void
     {
         $this->store->setIfNotExists('lock', 'w1', ttlSeconds: $this->ttlSeconds());
-        $this->advanceTime((float) $this->ttlSeconds());
+        $this->advanceTime($this->ttlSeconds() + $this->expiryGrace());
 
         self::assertTrue($this->store->setIfNotExists('lock', 'w2', ttlSeconds: $this->ttlSeconds()));
         self::assertSame('w2', $this->store->get('lock'));
@@ -191,7 +201,7 @@ abstract class StateStoreContractTestCase extends TestCase
     public function testSetIfNotExistsHonorsItsOwnTtl(): void
     {
         $this->store->setIfNotExists('lock', 'w1', ttlSeconds: $this->ttlSeconds());
-        $this->advanceTime((float) $this->ttlSeconds());
+        $this->advanceTime($this->ttlSeconds() + $this->expiryGrace());
 
         self::assertNull($this->store->get('lock'));
     }
