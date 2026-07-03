@@ -23,5 +23,15 @@ interface StateStore
      */
     public function increment(string $key, int $by = 1, ?int $ttlSeconds = null): int;
 
+    /**
+     * Stores the value only when the key is absent or expired, reporting
+     * whether it was stored. Works as a lightweight lease for electing the
+     * worker that performs a state transition.
+     *
+     * Must be atomic when the backend allows it. Implementations document
+     * when it is not.
+     */
+    public function setIfNotExists(string $key, string $value, ?int $ttlSeconds = null): bool;
+
     public function delete(string $key): void;
 }

@@ -63,6 +63,17 @@ final class InMemoryStore implements StateStore
         return $value;
     }
 
+    public function setIfNotExists(string $key, string $value, ?int $ttlSeconds = null): bool
+    {
+        if ($this->get($key) !== null) {
+            return false;
+        }
+
+        $this->set($key, $value, $ttlSeconds);
+
+        return true;
+    }
+
     public function delete(string $key): void
     {
         unset($this->items[$key]);

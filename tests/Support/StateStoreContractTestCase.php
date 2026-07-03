@@ -147,4 +147,35 @@ abstract class StateStoreContractTestCase extends TestCase
 
         self::assertNull($this->store->get('counter'));
     }
+
+    public function testSetIfNotExistsStoresWhenMissing(): void
+    {
+        self::assertTrue($this->store->setIfNotExists('lock', 'w1'));
+        self::assertSame('w1', $this->store->get('lock'));
+    }
+
+    public function testSetIfNotExistsKeepsTheExistingValue(): void
+    {
+        $this->store->setIfNotExists('lock', 'w1');
+
+        self::assertFalse($this->store->setIfNotExists('lock', 'w2'));
+        self::assertSame('w1', $this->store->get('lock'));
+    }
+
+    public function testSetIfNotExistsStoresAgainAfterExpiry(): void
+    {
+        $this->store->setIfNotExists('lock', 'w1', ttlSeconds: 10);
+        $this->advanceTime(10.0);
+
+        self::assertTrue($this->store->setIfNotExists('lock', 'w2', ttlSeconds: 10));
+        self::assertSame('w2', $this->store->get('lock'));
+    }
+
+    public function testSetIfNotExistsHonorsItsOwnTtl(): void
+    {
+        $this->store->setIfNotExists('lock', 'w1', ttlSeconds: 10);
+        $this->advanceTime(10.0);
+
+        self::assertNull($this->store->get('lock'));
+    }
 }
