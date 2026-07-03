@@ -1,0 +1,8 @@
+services:
+  flaky-api:
+    image: php:8.3-cli-alpine
+    command: php -S 0.0.0.0:8080 /app/server.php
+    volumes:
+      - ./server.php:/app/server.php:ro
+    ports:
+      - "8080:8080"
