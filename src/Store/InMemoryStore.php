@@ -6,6 +6,7 @@ namespace Duat\Store;
 
 use Duat\Contract\Clock;
 use Duat\Contract\StateStore;
+use Duat\Support\SystemClock;
 
 /**
  * Array-backed store local to the current process. State is not shared
@@ -17,8 +18,11 @@ final class InMemoryStore implements StateStore
     /** @var array<string, array{value: string, expiresAt: float|null}> */
     private array $items = [];
 
-    public function __construct(private readonly Clock $clock)
+    private readonly Clock $clock;
+
+    public function __construct(?Clock $clock = null)
     {
+        $this->clock = $clock ?? new SystemClock();
     }
 
     public function get(string $key): ?string
