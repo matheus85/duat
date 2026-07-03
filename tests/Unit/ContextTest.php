@@ -7,8 +7,10 @@ namespace Duat\Tests\Unit;
 use Duat\Context;
 use Duat\Tests\Support\FakeClock;
 use Duat\Tests\Support\FakeRandomizer;
+use Duat\Tests\Support\SpyDispatcher;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 #[CoversClass(Context::class)]
 final class ContextTest extends TestCase
@@ -63,5 +65,43 @@ final class ContextTest extends TestCase
         self::assertSame($randomizer, $derived->randomizer);
         self::assertSame(10.0, $derived->startedAt);
         self::assertSame(['tenant' => 42], $derived->metadata);
+    }
+
+    public function testWithAttemptKeepsTheEventDispatcher(): void
+    {
+        $dispatcher = new SpyDispatcher();
+        $context = new Context(
+            name: 'api',
+            clock: new FakeClock(),
+            randomizer: new FakeRandomizer(),
+            events: $dispatcher,
+        );
+
+        self::assertSame($dispatcher, $context->withAttempt(2)->events);
+    }
+
+    public function testDispatchForwardsToTheDispatcher(): void
+    {
+        $dispatcher = new SpyDispatcher();
+        $context = new Context(
+            name: 'api',
+            clock: new FakeClock(),
+            randomizer: new FakeRandomizer(),
+            events: $dispatcher,
+        );
+
+        $event = new stdClass();
+        $context->dispatch($event);
+
+        self::assertSame([$event], $dispatcher->events());
+    }
+
+    public function testDispatchWithoutDispatcherIsANoOp(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $context = new Context(name: 'api', clock: new FakeClock(), randomizer: new FakeRandomizer());
+
+        $context->dispatch(new stdClass());
     }
 }

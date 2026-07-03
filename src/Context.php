@@ -6,6 +6,7 @@ namespace Duat;
 
 use Duat\Contract\Clock;
 use Duat\Contract\Randomizer;
+use Psr\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Immutable execution context passed through the policy pipeline.
@@ -25,6 +26,7 @@ final readonly class Context
         public int $attempt = 1,
         ?float $startedAt = null,
         public array $metadata = [],
+        public ?EventDispatcherInterface $events = null,
     ) {
         $this->startedAt = $startedAt ?? $clock->now();
     }
@@ -38,6 +40,12 @@ final readonly class Context
             attempt: $attempt,
             startedAt: $this->startedAt,
             metadata: $this->metadata,
+            events: $this->events,
         );
+    }
+
+    public function dispatch(object $event): void
+    {
+        $this->events?->dispatch($event);
     }
 }
