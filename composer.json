@@ -25,13 +25,15 @@
         "friendsofphp/php-cs-fixer": "^3.75",
         "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^11.5 || ^12.0",
+        "predis/predis": "^3.5",
         "psr/event-dispatcher": "^1.0",
         "psr/simple-cache": "^3.0"
     },
     "suggest": {
         "psr/simple-cache": "To use any PSR-16 cache as shared state store",
         "psr/event-dispatcher": "To receive resilience events (circuit opened, retry attempted...)",
-        "ext-redis": "Recommended production state store with atomic operations"
+        "ext-redis": "Recommended production state store with atomic operations",
+        "predis/predis": "Pure PHP alternative to ext-redis, also supported by RedisStore"
     },
     "autoload": {
         "psr-4": {
@@ -48,6 +50,7 @@
     },
     "scripts": {
         "test": "phpunit",
+        "test:integration": "phpunit --testsuite integration",
         "test:coverage": [
             "@putenv XDEBUG_MODE=coverage",
             "phpunit --coverage-html coverage --coverage-text"

@@ -20,6 +20,23 @@ abstract class StateStoreContractTestCase extends TestCase
 
     abstract protected function advanceTime(float $seconds): void;
 
+    /**
+     * Base TTL used by the expiry tests. Stores tested against a real clock
+     * override this with something small to keep the suite fast.
+     */
+    protected function ttlSeconds(): int
+    {
+        return 10;
+    }
+
+    /**
+     * How far past any TTL the "never expires" checks travel.
+     */
+    protected function farFuture(): float
+    {
+        return 86_400.0;
+    }
+
     protected function setUp(): void
     {
         $this->store = $this->createStore();
@@ -62,18 +79,18 @@ abstract class StateStoreContractTestCase extends TestCase
 
     public function testValueSurvivesUntilTtl(): void
     {
-        $this->store->set('key', 'value', ttlSeconds: 10);
+        $this->store->set('key', 'value', ttlSeconds: $this->ttlSeconds());
 
-        $this->advanceTime(9.75);
+        $this->advanceTime($this->ttlSeconds() * 0.75);
 
         self::assertSame('value', $this->store->get('key'));
     }
 
     public function testValueExpiresAfterTtl(): void
     {
-        $this->store->set('key', 'value', ttlSeconds: 10);
+        $this->store->set('key', 'value', ttlSeconds: $this->ttlSeconds());
 
-        $this->advanceTime(10.0);
+        $this->advanceTime((float) $this->ttlSeconds());
 
         self::assertNull($this->store->get('key'));
     }
@@ -82,17 +99,17 @@ abstract class StateStoreContractTestCase extends TestCase
     {
         $this->store->set('key', 'value');
 
-        $this->advanceTime(86_400.0);
+        $this->advanceTime($this->farFuture());
 
         self::assertSame('value', $this->store->get('key'));
     }
 
     public function testSetWithoutTtlClearsPreviousTtl(): void
     {
-        $this->store->set('key', 'first', ttlSeconds: 10);
+        $this->store->set('key', 'first', ttlSeconds: $this->ttlSeconds());
         $this->store->set('key', 'second');
 
-        $this->advanceTime(86_400.0);
+        $this->advanceTime($this->farFuture());
 
         self::assertSame('second', $this->store->get('key'));
     }
@@ -126,24 +143,24 @@ abstract class StateStoreContractTestCase extends TestCase
 
     public function testIncrementAppliesTtlOnlyOnCreation(): void
     {
-        $this->store->increment('counter', ttlSeconds: 10);
-        $this->advanceTime(6.0);
-        $this->store->increment('counter', ttlSeconds: 10);
-        $this->advanceTime(6.0);
+        $this->store->increment('counter', ttlSeconds: $this->ttlSeconds());
+        $this->advanceTime($this->ttlSeconds() * 0.6);
+        $this->store->increment('counter', ttlSeconds: $this->ttlSeconds());
+        $this->advanceTime($this->ttlSeconds() * 0.6);
 
-        // 12s after creation the original 10s TTL is gone, even though the
+        // 1.2 TTLs after creation the original TTL is gone, even though the
         // second increment asked for a fresh one.
         self::assertNull($this->store->get('counter'));
     }
 
     public function testIncrementAfterExpiryStartsFromZeroWithFreshTtl(): void
     {
-        $this->store->increment('counter', by: 5, ttlSeconds: 10);
-        $this->advanceTime(10.0);
+        $this->store->increment('counter', by: 5, ttlSeconds: $this->ttlSeconds());
+        $this->advanceTime((float) $this->ttlSeconds());
 
-        self::assertSame(1, $this->store->increment('counter', ttlSeconds: 10));
+        self::assertSame(1, $this->store->increment('counter', ttlSeconds: $this->ttlSeconds()));
 
-        $this->advanceTime(10.0);
+        $this->advanceTime((float) $this->ttlSeconds());
 
         self::assertNull($this->store->get('counter'));
     }
@@ -164,17 +181,17 @@ abstract class StateStoreContractTestCase extends TestCase
 
     public function testSetIfNotExistsStoresAgainAfterExpiry(): void
     {
-        $this->store->setIfNotExists('lock', 'w1', ttlSeconds: 10);
-        $this->advanceTime(10.0);
+        $this->store->setIfNotExists('lock', 'w1', ttlSeconds: $this->ttlSeconds());
+        $this->advanceTime((float) $this->ttlSeconds());
 
-        self::assertTrue($this->store->setIfNotExists('lock', 'w2', ttlSeconds: 10));
+        self::assertTrue($this->store->setIfNotExists('lock', 'w2', ttlSeconds: $this->ttlSeconds()));
         self::assertSame('w2', $this->store->get('lock'));
     }
 
     public function testSetIfNotExistsHonorsItsOwnTtl(): void
     {
-        $this->store->setIfNotExists('lock', 'w1', ttlSeconds: 10);
-        $this->advanceTime(10.0);
+        $this->store->setIfNotExists('lock', 'w1', ttlSeconds: $this->ttlSeconds());
+        $this->advanceTime((float) $this->ttlSeconds());
 
         self::assertNull($this->store->get('lock'));
     }
