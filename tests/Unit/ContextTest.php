@@ -104,4 +104,57 @@ final class ContextTest extends TestCase
 
         $context->dispatch(new stdClass());
     }
+
+    public function testWithDeadlineDerivesNewInstanceKeepingEverythingElse(): void
+    {
+        $context = new Context(
+            name: 'api',
+            clock: new FakeClock(),
+            randomizer: new FakeRandomizer(),
+            metadata: ['tenant' => 42],
+        );
+
+        $derived = $context->withDeadline(30.0);
+
+        self::assertNull($context->deadline);
+        self::assertSame(30.0, $derived->deadline);
+        self::assertSame('api', $derived->name);
+        self::assertSame(['tenant' => 42], $derived->metadata);
+    }
+
+    public function testWithAttemptKeepsTheDeadline(): void
+    {
+        $context = new Context(name: 'api', clock: new FakeClock(), randomizer: new FakeRandomizer());
+
+        self::assertSame(30.0, $context->withDeadline(30.0)->withAttempt(2)->deadline);
+    }
+
+    public function testRemainingBudgetIsNullWithoutDeadline(): void
+    {
+        $context = new Context(name: 'api', clock: new FakeClock(), randomizer: new FakeRandomizer());
+
+        self::assertNull($context->remainingBudget());
+    }
+
+    public function testRemainingBudgetShrinksAsTimePasses(): void
+    {
+        $clock = new FakeClock();
+        $context = (new Context(name: 'api', clock: $clock, randomizer: new FakeRandomizer()))
+            ->withDeadline(10.0);
+
+        $clock->advance(4.0);
+
+        self::assertSame(6.0, $context->remainingBudget());
+    }
+
+    public function testRemainingBudgetClampsAtZero(): void
+    {
+        $clock = new FakeClock();
+        $context = (new Context(name: 'api', clock: $clock, randomizer: new FakeRandomizer()))
+            ->withDeadline(10.0);
+
+        $clock->advance(15.0);
+
+        self::assertSame(0.0, $context->remainingBudget());
+    }
 }

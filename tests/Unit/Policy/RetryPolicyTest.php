@@ -10,7 +10,9 @@ use Duat\Context;
 use Duat\Event\RetryAttempted;
 use Duat\Exception\CircuitOpenException;
 use Duat\Exception\RetryExhaustedException;
+use Duat\Pipeline;
 use Duat\Policy\RetryPolicy;
+use Duat\Policy\TimeoutPolicy;
 use Duat\Tests\Support\FakeClock;
 use Duat\Tests\Support\FakeRandomizer;
 use Duat\Tests\Support\SpyDispatcher;
@@ -302,5 +304,62 @@ final class RetryPolicyTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         new RetryPolicy(maxAttempts: 0, backoff: Backoff::constant(100.0));
+    }
+
+    public function testGivesUpWhenTheDelayWouldExceedTheRemainingBudget(): void
+    {
+        $calls = 0;
+        $dispatcher = new SpyDispatcher();
+        $policy = new RetryPolicy(maxAttempts: 5, backoff: Backoff::constant(200.0));
+        $context = $this->context($dispatcher)->withDeadline($this->clock->now() + 0.15);
+
+        try {
+            $policy->execute($this->flaky(10, $calls), $context);
+            self::fail('Expected RuntimeException.');
+        } catch (RuntimeException $e) {
+            self::assertSame('boom 1', $e->getMessage());
+        }
+
+        self::assertSame(1, $calls);
+        self::assertSame([], $this->clock->sleeps());
+        self::assertSame([], $dispatcher->events());
+    }
+
+    public function testRetriesNormallyWithinAGenerousBudget(): void
+    {
+        $calls = 0;
+        $policy = new RetryPolicy(maxAttempts: 3, backoff: Backoff::constant(100.0));
+        $context = $this->context()->withDeadline($this->clock->now() + 10.0);
+
+        $result = $policy->execute($this->flaky(1, $calls), $context);
+
+        self::assertSame('ok', $result);
+        self::assertSame(2, $calls);
+    }
+
+    public function testTimeoutPolicyBudgetStopsRetriesInComposition(): void
+    {
+        $calls = 0;
+        $pipeline = new Pipeline([
+            new TimeoutPolicy(seconds: 0.5),
+            new RetryPolicy(maxAttempts: 5, backoff: Backoff::constant(300.0)),
+        ]);
+
+        try {
+            $pipeline->execute(function () use (&$calls): never {
+                $calls++;
+                $this->clock->advance(0.1);
+
+                throw new RuntimeException('boom ' . $calls);
+            }, $this->context());
+            self::fail('Expected RuntimeException.');
+        } catch (RuntimeException $e) {
+            self::assertSame('boom 2', $e->getMessage());
+        }
+
+        // Attempt 1 fails at 0.1s, one 0.3s wait fits the 0.5s budget,
+        // attempt 2 fails at 0.5s and the next wait would not fit.
+        self::assertSame(2, $calls);
+        self::assertSame([0.3], $this->clock->sleeps());
     }
 }

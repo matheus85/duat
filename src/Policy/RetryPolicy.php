@@ -60,6 +60,14 @@ final class RetryPolicy implements Policy
                 }
 
                 $delayMs = $this->backoff->delayMs($attempt, $current->randomizer);
+
+                // Retrying past the deadline only burns budget, so give up
+                // with the real failure instead.
+                $budget = $current->remainingBudget();
+                if ($budget !== null && $delayMs / 1_000.0 >= $budget) {
+                    throw $exception;
+                }
+
                 $current->dispatch(new RetryAttempted($current->name, $attempt, $delayMs, $exception));
 
                 if ($this->onRetry !== null) {
