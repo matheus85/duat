@@ -6,10 +6,10 @@ namespace Duat\Tests\Unit\Support;
 
 use Duat\Tests\Support\FakeRandomizer;
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(FakeRandomizer::class)]
+#[CoversNothing]
 final class FakeRandomizerTest extends TestCase
 {
     public function testReturnsGivenValuesInOrder(): void

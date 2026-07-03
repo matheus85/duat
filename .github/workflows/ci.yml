@@ -35,3 +35,19 @@ jobs:
           coverage: none
       - run: composer install --prefer-dist --no-progress
       - run: vendor/bin/phpunit
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: pcov
+      - run: composer install --prefer-dist --no-progress
+      - run: vendor/bin/phpunit --coverage-text --coverage-clover coverage.xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml

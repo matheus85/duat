@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Duat\Tests\Unit\Support;
 
 use Duat\Tests\Support\FakeClock;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(FakeClock::class)]
+#[CoversNothing]
 final class FakeClockTest extends TestCase
 {
     public function testStartsAtGivenTime(): void
