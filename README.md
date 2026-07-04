@@ -46,7 +46,8 @@ built it.
 | Required dependencies | none          | none    | HTTP client                |
 
 If you come from Java think Resilience4j, if you come from .NET think
-Polly. That feature set is the goal, in PHP, one policy at a time.
+Polly. That toolbox, in PHP: everything marked yes above is shipped and
+tested, and the rate limiter is next in line.
 
 ## Install
 
@@ -235,7 +236,7 @@ the lease comfortably above your slowest expected call.
 
 ## Shared state
 
-Circuit breaker state has to live somewhere. Pick a store:
+Circuit breaker and bulkhead state has to live somewhere. Pick a store:
 
 | Store           | Backend                        | Atomicity                                     |
 | --------------- | ------------------------------ | --------------------------------------------- |
@@ -244,15 +245,17 @@ Circuit breaker state has to live somewhere. Pick a store:
 | `RedisStore`    | ext-redis or Predis            | atomic (Lua increments, SET NX leases)        |
 
 The default `InMemoryStore` does not cross PHP-FPM workers: each worker
-would run its own circuit. Fine for CLI tools, queue workers and tests, but
-production web workloads want `->store(new RedisStore($client))`.
+would run its own circuit and count its own bulkhead slots. Fine for CLI
+tools, queue workers and tests, but production web workloads want
+`->store(new RedisStore($client))`.
 
 ## Events
 
 Pass any PSR-14 dispatcher with `->events($dispatcher)` and Duat emits
 readonly event objects: `RetryAttempted`, `CircuitOpened`,
 `CircuitHalfOpened`, `CircuitClosed`, `CallRejected`, `DeadlineExceeded`
-and `FallbackExecuted`. No dispatcher, no events, no overhead.
+and `FallbackExecuted`. No dispatcher, no events, no overhead. The proxy
+factory takes the same dispatcher in its constructor.
 
 ## Watch it live
 
@@ -278,8 +281,8 @@ gateway, failures simulated in-process, no docker required.
 Time and randomness are injectable everywhere. Implement the two tiny
 interfaces `Duat\Contract\Clock` and `Duat\Contract\Randomizer`, pass them
 with `->clock()` and `->randomizer()`, and your resilience tests run in
-milliseconds with zero real sleeps. Duat's own suite (190+ tests) works
-exactly like that.
+milliseconds with zero real sleeps. Duat's own unit suite works exactly
+like that and finishes in a fraction of a second.
 
 ## Roadmap
 
