@@ -26,6 +26,10 @@ The core is feature-complete: every policy from the original plan is in.
 - `BackoffType` enum for naming backoff strategies where instances cannot
   be expressed, like attribute arguments.
 - `examples/attributes`: annotated payment gateway demo, no docker needed.
+- Mutation testing with Infection: 87% MSI today, enforced at 86 in CI,
+  with the surviving mutants reviewed and documented as harmless.
+- `benchmarks/overhead.php` measuring the per-call cost of the pipeline;
+  the README states the numbers upfront.
 
 ### Changed
 

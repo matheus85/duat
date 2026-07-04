@@ -301,12 +301,21 @@ with `->clock()` and `->randomizer()`, and your resilience tests run in
 milliseconds with zero real sleeps. Duat's own unit suite works exactly
 like that and finishes in a fraction of a second.
 
+## Overhead
+
+Resilience is not free, but it is cheap. On the development machine
+(PHP 8.4, Windows), a successful call through the full chain (retry,
+circuit breaker, timeout and fallback over the in-memory store) costs about
+4 microseconds on top of the bare callable, and the attribute proxy sits
+around 3. Failure paths cost more by design: they hit the window, sleep
+through backoffs and walk the fallback. Run `php benchmarks/overhead.php`
+for numbers on your hardware.
+
 ## Roadmap
 
-- **Next**: first-class Laravel bridge as a separate package
-  (`matheus85/duat-laravel`): service provider, cache-backed stores, HTTP
-  client macro, native events.
-- **Later**: mutation testing, benchmarks.
+Next up is a first-class Laravel bridge as a separate package
+(`matheus85/duat-laravel`): service provider, cache-backed stores, HTTP
+client macro, native events.
 
 ## License
 
