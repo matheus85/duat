@@ -14,7 +14,7 @@ final class SlowService
     }
 
     #[Timeout(seconds: 5.0)]
-    public function work(): string
+    public function slowWork(): string
     {
         $this->clock->advance(6.0);
 

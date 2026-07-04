@@ -204,7 +204,9 @@ final class ProxyFactoryTest extends TestCase
     {
         $proxy = $this->factory()->wrap(new SlowService($this->clock));
 
-        self::assertSame('late', $this->call($proxy, 'work'));
+        // camelCase on purpose: the proxy must normalize annotated method
+        // names at wrap time, not only at call time.
+        self::assertSame('late', $this->call($proxy, 'slowWork'));
 
         $events = $this->dispatcher->events();
         self::assertCount(1, $events);
