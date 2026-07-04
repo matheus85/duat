@@ -9,6 +9,7 @@ use Duat\Context;
 use Duat\Duat;
 use Duat\Event\DeadlineExceeded;
 use Duat\Event\RetryAttempted;
+use Duat\Exception\BulkheadFullException;
 use Duat\Exception\CircuitOpenException;
 use Duat\Exception\RetryExhaustedException;
 use Duat\Store\InMemoryStore;
@@ -214,6 +215,19 @@ final class DuatTest extends TestCase
         self::assertSame('late', $result);
         self::assertCount(1, $dispatcher->events());
         self::assertInstanceOf(DeadlineExceeded::class, $dispatcher->events()[0]);
+    }
+
+    public function testBulkheadRejectsWhenFull(): void
+    {
+        $store = new InMemoryStore($this->clock);
+        $store->increment('duat:bh:api:active', ttlSeconds: 60);
+
+        $this->expectException(BulkheadFullException::class);
+
+        $this->chain()
+            ->bulkhead(maxConcurrent: 1)
+            ->store($store)
+            ->call(static fn (): string => 'never');
     }
 
     public function testFallbackHandlerReceivesTheExceptionAndContext(): void

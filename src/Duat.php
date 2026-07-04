@@ -10,6 +10,7 @@ use Duat\Contract\Clock;
 use Duat\Contract\Policy;
 use Duat\Contract\Randomizer;
 use Duat\Contract\StateStore;
+use Duat\Policy\BulkheadPolicy;
 use Duat\Policy\CircuitBreakerPolicy;
 use Duat\Policy\FallbackPolicy;
 use Duat\Policy\RetryPolicy;
@@ -99,6 +100,15 @@ final class Duat
             cooldownSeconds: $cooldownSeconds,
             halfOpenMaxCalls: $halfOpenMaxCalls,
             recordOn: $recordOn,
+        ));
+    }
+
+    public function bulkhead(int $maxConcurrent, int $leaseSeconds = 60): self
+    {
+        return $this->withLayer(static fn (StateStore $store): Policy => new BulkheadPolicy(
+            store: $store,
+            maxConcurrent: $maxConcurrent,
+            leaseSeconds: $leaseSeconds,
         ));
     }
 
