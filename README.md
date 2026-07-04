@@ -5,9 +5,10 @@
 ![PHP](https://img.shields.io/badge/php-8.3%2B-777bb4)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Unified resilience patterns for modern PHP: retry, circuit breaker, timeout
-and fallback behind one fluent API. Zero required dependencies, no framework
-coupling, no HTTP client coupling. Duat wraps callables, nothing else.
+Unified resilience patterns for modern PHP: retry, circuit breaker, timeout,
+bulkhead and fallback behind one fluent API or PHP 8 attributes. Zero
+required dependencies, no framework coupling, no HTTP client coupling. Duat
+wraps callables, nothing else.
 
 ```php
 use Duat\Duat;
@@ -39,9 +40,9 @@ built it.
 | Circuit breaker       | yes           | yes     | yes                        |
 | Timeout (deadline)    | yes           | no      | per HTTP client            |
 | Fallback              | yes           | no      | yes                        |
-| Bulkhead              | planned (0.2) | no      | no                         |
+| Bulkhead              | yes           | no      | no                         |
 | Rate limiter          | planned       | no      | no                         |
-| PHP 8 attributes      | planned (0.2) | no      | no                         |
+| PHP 8 attributes      | yes           | no      | no                         |
 | Required dependencies | none          | none    | HTTP client                |
 
 If you come from Java think Resilience4j, if you come from .NET think
@@ -87,6 +88,61 @@ opens, the rejection stops the retry loop immediately: Duat never retries
 purpose. `circuitBreaker()->retry()` puts the whole retry burst inside a
 single breaker call instead, so one exhausted retry counts as one failure
 in the window. Both arrangements are legitimate, pick one consciously.
+
+## Attributes
+
+Prefer declaring resilience where the method lives? Annotate it and wrap
+the instance:
+
+```php
+use Duat\Attributes\CircuitBreaker;
+use Duat\Attributes\Fallback;
+use Duat\Attributes\Retry;
+use Duat\Proxy\ProxyFactory;
+
+final class PaymentGateway
+{
+    #[Retry(maxAttempts: 3, backoffMs: 200)]
+    #[CircuitBreaker(failureRateThreshold: 0.5, cooldownSeconds: 30)]
+    #[Fallback(method: 'queueForLater')]
+    public function charge(Order $order): Receipt
+    {
+        // talk to the acquirer
+    }
+
+    public function queueForLater(Order $order, Throwable $e): Receipt
+    {
+        // same arguments, plus the exception
+    }
+}
+
+$factory = new ProxyFactory(store: new RedisStore($redis));
+$gateway = $factory->wrap(new PaymentGateway());
+
+$gateway->charge($order);
+```
+
+Attribute order defines the pipeline order and `#[Fallback]` is always the
+outermost layer, exactly like the fluent builder. `#[Timeout]` and
+`#[Bulkhead]` work the same way. Attribute arguments only accept constant
+expressions, so backoff is configured with scalars (`backoffMs`, `capMs`,
+`jitter` and `backoff: BackoffType::Linear`). Shared state is keyed by
+`Class::method`; keep a single factory per process so every proxy shares
+one store.
+
+### The proxy trade-off, upfront
+
+`wrap()` returns a composition proxy built on `__call`, and that has two
+consequences you should know before choosing attributes:
+
+- The proxy is not an instanceof of your class, so it cannot be passed
+  where the original class or one of its interfaces is type-hinted.
+- Static analysis and IDE autocompletion lose the method signatures: calls
+  go through a magic method and return `mixed`.
+
+When either of those matters, use the fluent API: same engine, full
+typing. A generated-proxy mode (a real subclass) may come later if the
+`__call` approach proves limiting in practice.
 
 ## Policies
 
@@ -162,6 +218,21 @@ Always the outermost layer, so it catches failures from every policy and
 from the callable itself. `on` filters which exceptions trigger it; the
 rest propagate untouched.
 
+### Bulkhead
+
+```php
+->bulkhead(maxConcurrent: 25, leaseSeconds: 60)
+```
+
+Caps how many calls run at the same time against the resource, across all
+workers sharing the store. When full it throws `BulkheadFullException`
+immediately: no queue, because parking a synchronous PHP worker to wait
+for a slot just moves the pile-up somewhere worse.
+
+The active-call counter takes a safety lease when created, so slots leaked
+by a process that died mid-call heal themselves after `leaseSeconds`. Keep
+the lease comfortably above your slowest expected call.
+
 ## Shared state
 
 Circuit breaker state has to live somewhere. Pick a store:
@@ -199,6 +270,9 @@ You will see retries, the circuit opening at the failure threshold, fast
 rejections with fallback answers, probes during cooldown and the circuit
 closing once the API recovers.
 
+`examples/attributes` tells the same story through an annotated payment
+gateway, failures simulated in-process, no docker required.
+
 ## Testing your own code
 
 Time and randomness are injectable everywhere. Implement the two tiny
@@ -209,8 +283,6 @@ exactly like that.
 
 ## Roadmap
 
-- **0.2**: PHP 8 attributes (`#[Retry]`, `#[CircuitBreaker]`...) via proxy
-  factory, plus the bulkhead policy.
 - **0.3**: first-class Laravel bridge as a separate package
   (`matheus85/duat-laravel`): service provider, cache-backed stores, HTTP
   client macro, native events.

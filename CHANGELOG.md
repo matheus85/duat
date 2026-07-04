@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-07-04
+
+### Added
+
+- `BulkheadPolicy` capping concurrent calls per resource, with a safety
+  lease that heals slots leaked by dead processes, plus `->bulkhead()` on
+  the fluent builder.
+- PHP 8 attributes (`#[Retry]`, `#[CircuitBreaker]`, `#[Timeout]`,
+  `#[Bulkhead]`, `#[Fallback]`) applied through `ProxyFactory::wrap()`.
+  Attribute order defines the pipeline and fallback methods receive the
+  original call arguments plus the exception.
+- `BackoffType` enum for naming backoff strategies where instances cannot
+  be expressed, like attribute arguments.
+- `examples/attributes`: annotated payment gateway demo, no docker needed.
+
+### Changed
+
+- Package description no longer lists features that have not shipped.
+
 ## [0.1.0] - 2026-07-03
 
 First usable release: the whole synchronous resilience core.
@@ -34,4 +53,5 @@ First usable release: the whole synchronous resilience core.
 - `examples/flaky-api`: dockerized flaky API demonstrating every policy
   live.
 
+[0.2.0]: https://github.com/matheus85/duat/releases/tag/v0.2.0
 [0.1.0]: https://github.com/matheus85/duat/releases/tag/v0.1.0
