@@ -205,4 +205,31 @@ abstract class StateStoreContractTestCase extends TestCase
 
         self::assertNull($this->store->get('lock'));
     }
+
+    public function testKeysKeepIndependentTtls(): void
+    {
+        $this->store->increment('short', ttlSeconds: $this->ttlSeconds());
+        $this->store->increment('long', ttlSeconds: $this->ttlSeconds() * 3);
+
+        $this->advanceTime($this->ttlSeconds() * 0.6);
+        $this->store->increment('short', ttlSeconds: $this->ttlSeconds());
+        $this->store->increment('long', ttlSeconds: $this->ttlSeconds());
+
+        $this->advanceTime($this->ttlSeconds() * 0.6 + $this->expiryGrace());
+
+        self::assertNull($this->store->get('short'));
+        self::assertSame('2', $this->store->get('long'));
+    }
+
+    public function testIncrementAfterTtlWasClearedKeepsTheValueAlive(): void
+    {
+        $this->store->set('key', '5', ttlSeconds: $this->ttlSeconds());
+        $this->store->set('key', '5');
+
+        self::assertSame(6, $this->store->increment('key'));
+
+        $this->advanceTime($this->farFuture());
+
+        self::assertSame('6', $this->store->get('key'));
+    }
 }

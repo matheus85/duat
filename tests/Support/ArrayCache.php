@@ -11,10 +11,14 @@ use Psr\SimpleCache\CacheInterface;
 
 /**
  * Minimal PSR-16 cache honoring TTLs against an injected clock, for
- * exercising Psr16Store deterministically.
+ * exercising Psr16Store deterministically. Strict about reserved key
+ * characters, like a spec-abiding cache would be, so the store's key
+ * normalization is actually exercised.
  */
 final class ArrayCache implements CacheInterface
 {
+    private const RESERVED_CHARACTERS = '{}()/\\@:';
+
     /** @var array<string, array{value: mixed, expiresAt: float|null}> */
     private array $items = [];
 
@@ -24,6 +28,8 @@ final class ArrayCache implements CacheInterface
 
     public function get(string $key, mixed $default = null): mixed
     {
+        $this->validateKey($key);
+
         $item = $this->items[$key] ?? null;
 
         if ($item === null) {
@@ -41,6 +47,8 @@ final class ArrayCache implements CacheInterface
 
     public function set(string $key, mixed $value, null|int|DateInterval $ttl = null): bool
     {
+        $this->validateKey($key);
+
         $seconds = $this->ttlSeconds($ttl);
 
         $this->items[$key] = [
@@ -53,6 +61,8 @@ final class ArrayCache implements CacheInterface
 
     public function delete(string $key): bool
     {
+        $this->validateKey($key);
+
         unset($this->items[$key]);
 
         return true;
@@ -109,5 +119,12 @@ final class ArrayCache implements CacheInterface
         }
 
         return $ttl;
+    }
+
+    private function validateKey(string $key): void
+    {
+        if ($key === '' || strpbrk($key, self::RESERVED_CHARACTERS) !== false) {
+            throw new InvalidCacheKeyException(sprintf('Invalid PSR-16 cache key "%s".', $key));
+        }
     }
 }

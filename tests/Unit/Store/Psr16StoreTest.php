@@ -38,4 +38,18 @@ final class Psr16StoreTest extends StateStoreContractTestCase
 
         self::assertNull($this->store->get('duat:cb:{api}:state'));
     }
+
+    public function testIncrementPreservesFractionalRemainingTtl(): void
+    {
+        $this->store->set('key', '1', ttlSeconds: 10);
+        $this->clock->advance(6.3);
+
+        $this->store->increment('key');
+
+        // The remaining 3.7s are rounded up to 4, so the value must still
+        // be alive just before the original expiry.
+        $this->clock->advance(3.5);
+
+        self::assertSame('2', $this->store->get('key'));
+    }
 }

@@ -23,6 +23,11 @@ final class ConstantBackoffTest extends TestCase
         self::assertSame(150.0, $backoff->delayMs(50, $randomizer));
     }
 
+    public function testZeroDelayIsValid(): void
+    {
+        self::assertSame(0.0, (new ConstantBackoff(0.0))->delayMs(1, new FakeRandomizer()));
+    }
+
     public function testRejectsNegativeDelay(): void
     {
         $this->expectException(InvalidArgumentException::class);

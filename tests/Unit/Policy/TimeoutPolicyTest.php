@@ -25,7 +25,9 @@ final class TimeoutPolicyTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->clock = new FakeClock();
+        // A non-zero epoch keeps sign mistakes visible: with time starting
+        // at zero, deadline - start and deadline + start look identical.
+        $this->clock = new FakeClock(now: 1_000.0);
     }
 
     private function context(?SpyDispatcher $dispatcher = null): Context
@@ -108,8 +110,23 @@ final class TimeoutPolicyTest extends TestCase
             return null;
         }, $this->context());
 
-        self::assertSame(5.0, $seen['deadline']);
+        self::assertSame(1_005.0, $seen['deadline']);
         self::assertSame(3.0, $seen['budget']);
+    }
+
+    public function testFinishingExactlyAtTheDeadlineIsNotLate(): void
+    {
+        $dispatcher = new SpyDispatcher();
+        $policy = new TimeoutPolicy(seconds: 5.0);
+
+        $result = $policy->execute(function (Context $context): string {
+            $this->clock->advance(5.0);
+
+            return 'on time';
+        }, $this->context($dispatcher));
+
+        self::assertSame('on time', $result);
+        self::assertSame([], $dispatcher->events());
     }
 
     public function testTighterOuterDeadlineWins(): void
@@ -121,9 +138,9 @@ final class TimeoutPolicyTest extends TestCase
             $seen[] = $context->deadline;
 
             return null;
-        }, $this->context()->withDeadline(5.0));
+        }, $this->context()->withDeadline(1_003.0));
 
-        self::assertSame([5.0], $seen);
+        self::assertSame([1_003.0], $seen);
     }
 
     public function testTighterOwnDeadlineWinsOverLooserOuter(): void
@@ -135,9 +152,9 @@ final class TimeoutPolicyTest extends TestCase
             $seen[] = $context->deadline;
 
             return null;
-        }, $this->context()->withDeadline(10.0));
+        }, $this->context()->withDeadline(1_008.0));
 
-        self::assertSame([5.0], $seen);
+        self::assertSame([1_005.0], $seen);
     }
 
     public function testExceptionsPropagateUntouchedEvenWhenLate(): void

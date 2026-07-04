@@ -306,6 +306,39 @@ final class RetryPolicyTest extends TestCase
         new RetryPolicy(maxAttempts: 0, backoff: Backoff::constant(100.0));
     }
 
+    public function testSingleAttemptMeansNoRetries(): void
+    {
+        $calls = 0;
+        $policy = new RetryPolicy(maxAttempts: 1, backoff: Backoff::constant(100.0));
+
+        try {
+            $policy->execute($this->flaky(10, $calls), $this->context());
+            self::fail('Expected RetryExhaustedException.');
+        } catch (RetryExhaustedException $e) {
+            self::assertSame(1, $e->attempts);
+        }
+
+        self::assertSame(1, $calls);
+        self::assertSame([], $this->clock->sleeps());
+    }
+
+    public function testGivesUpWhenTheDelayEqualsTheBudgetExactly(): void
+    {
+        $calls = 0;
+        $policy = new RetryPolicy(maxAttempts: 5, backoff: Backoff::constant(200.0));
+        $context = $this->context()->withDeadline($this->clock->now() + 0.2);
+
+        try {
+            $policy->execute($this->flaky(10, $calls), $context);
+            self::fail('Expected RuntimeException.');
+        } catch (RuntimeException $e) {
+            self::assertSame('boom 1', $e->getMessage());
+        }
+
+        self::assertSame(1, $calls);
+        self::assertSame([], $this->clock->sleeps());
+    }
+
     public function testGivesUpWhenTheDelayWouldExceedTheRemainingBudget(): void
     {
         $calls = 0;

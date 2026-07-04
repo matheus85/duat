@@ -177,7 +177,7 @@ final class CircuitBreakerPolicyTest extends TestCase
         self::assertSame(RejectionReason::CircuitOpen, $rejected[0]->reason);
     }
 
-    public function testWindowExpiresOldRecords(): void
+    public function testWindowExpiresOldRecordsExactlyAtTheEdge(): void
     {
         $policy = $this->policy();
         $context = $this->context();
@@ -185,17 +185,40 @@ final class CircuitBreakerPolicyTest extends TestCase
         $this->failWith($policy, $context, new DomainException('down'));
         $this->failWith($policy, $context, new DomainException('down'));
 
-        $this->clock->advance(11.0);
+        // Ten seconds later the window covers seconds 1001..1010: the two
+        // failures recorded at second 1000 just fell out.
+        $this->clock->advance(10.0);
 
         $this->failWith($policy, $context, new DomainException('down'));
         $this->failWith($policy, $context, new DomainException('down'));
 
-        // Four failures ever, but only two inside the window: still closed.
         $this->succeed($policy, $context);
         self::assertSame([], $this->eventsOf(CircuitOpened::class));
 
         // One more failure makes it 3 failures / 4 calls in-window: opens.
         $this->failWith($policy, $context, new DomainException('down'));
+        self::assertCount(1, $this->eventsOf(CircuitOpened::class));
+        $this->assertRejected($policy, $context);
+    }
+
+    public function testOldestBucketInsideTheWindowStillCounts(): void
+    {
+        $policy = $this->policy();
+        $context = $this->context();
+
+        // Fractional times force the bucket math through floor().
+        $this->clock->advance(0.25);
+
+        $this->failWith($policy, $context, new DomainException('down'));
+        $this->failWith($policy, $context, new DomainException('down'));
+        $this->failWith($policy, $context, new DomainException('down'));
+
+        // Nine seconds later those failures sit in the oldest bucket the
+        // window still covers (1000, with the window at 1000..1009).
+        $this->clock->advance(9.0);
+
+        $this->failWith($policy, $context, new DomainException('down'));
+
         self::assertCount(1, $this->eventsOf(CircuitOpened::class));
         $this->assertRejected($policy, $context);
     }
