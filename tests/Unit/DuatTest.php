@@ -231,6 +231,61 @@ final class DuatTest extends TestCase
             ->call(static fn (): string => 'never');
     }
 
+    public function testRetryDefaultsToThreeAttempts(): void
+    {
+        $calls = 0;
+        self::assertSame('ok', $this->chain('api', 0.5)->retry()->call($this->flaky(2, $calls)));
+        self::assertSame(3, $calls);
+
+        $calls = 0;
+
+        try {
+            $this->chain('api', 0.5)->retry()->call($this->flaky(3, $calls));
+            self::fail('Expected RetryExhaustedException.');
+        } catch (RetryExhaustedException $e) {
+            self::assertSame(3, $e->attempts);
+        }
+    }
+
+    public function testCircuitBreakerDefaultsToTenMinimumCalls(): void
+    {
+        $chain = $this->chain()
+            ->circuitBreaker()
+            ->store(new InMemoryStore($this->clock));
+        $calls = 0;
+        $failing = $this->flaky(100, $calls);
+
+        foreach (range(1, 4) as $round) {
+            self::assertSame('ok', $chain->call(static fn (): string => 'ok'));
+        }
+
+        foreach (range(1, 5) as $round) {
+            try {
+                $chain->call($failing);
+                self::fail('Expected RuntimeException.');
+            } catch (RuntimeException) {
+            }
+        }
+
+        // The failure rate crossed 50% at call 8 already, but only ten
+        // calls satisfy the default minimum: every failure above executed.
+        self::assertSame(5, $calls);
+
+        try {
+            $chain->call($failing);
+            self::fail('Expected RuntimeException.');
+        } catch (RuntimeException) {
+        }
+
+        // Call ten was the first allowed to evaluate the rate, and it ran
+        // before opening the circuit.
+        self::assertSame(6, $calls);
+
+        $this->expectException(CircuitOpenException::class);
+
+        $chain->call(static fn (): string => 'ok');
+    }
+
     public function testRateLimiterRejectsOverTheLimit(): void
     {
         $chain = $this->chain()
