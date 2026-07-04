@@ -7,6 +7,7 @@ namespace Duat\Proxy;
 use Duat\Attributes\Bulkhead;
 use Duat\Attributes\CircuitBreaker;
 use Duat\Attributes\Fallback;
+use Duat\Attributes\RateLimiter;
 use Duat\Attributes\Retry;
 use Duat\Attributes\Timeout;
 use Duat\Context;
@@ -17,6 +18,7 @@ use Duat\Pipeline;
 use Duat\Policy\BulkheadPolicy;
 use Duat\Policy\CircuitBreakerPolicy;
 use Duat\Policy\FallbackPolicy;
+use Duat\Policy\RateLimiterPolicy;
 use Duat\Policy\RetryPolicy;
 use Duat\Policy\TimeoutPolicy;
 use Duat\Store\InMemoryStore;
@@ -103,6 +105,7 @@ final class ProxyFactory
                 CircuitBreaker::class,
                 Timeout::class,
                 Bulkhead::class,
+                RateLimiter::class,
                 Fallback::class => $attribute->newInstance(),
                 default => null,
             };
@@ -138,6 +141,12 @@ final class ProxyFactory
                     store: $this->store,
                     maxConcurrent: $config->maxConcurrent,
                     leaseSeconds: $config->leaseSeconds,
+                );
+            } elseif ($config instanceof RateLimiter) {
+                $policies[] = new RateLimiterPolicy(
+                    store: $this->store,
+                    maxCalls: $config->maxCalls,
+                    perSeconds: $config->perSeconds,
                 );
             } elseif ($config instanceof Fallback) {
                 $fallbacks[] = $this->fallbackPolicy($instance, $method, $config);

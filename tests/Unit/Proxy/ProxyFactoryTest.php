@@ -8,12 +8,14 @@ use BadMethodCallException;
 use Duat\Attributes\Bulkhead;
 use Duat\Attributes\CircuitBreaker;
 use Duat\Attributes\Fallback;
+use Duat\Attributes\RateLimiter;
 use Duat\Attributes\Retry;
 use Duat\Attributes\Timeout;
 use Duat\Event\DeadlineExceeded;
 use Duat\Event\RetryAttempted;
 use Duat\Exception\BulkheadFullException;
 use Duat\Exception\CircuitOpenException;
+use Duat\Exception\RateLimitExceededException;
 use Duat\Exception\RetryExhaustedException;
 use Duat\Proxy\Proxy;
 use Duat\Proxy\ProxyFactory;
@@ -37,6 +39,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CircuitBreaker::class)]
 #[CoversClass(Timeout::class)]
 #[CoversClass(Bulkhead::class)]
+#[CoversClass(RateLimiter::class)]
 #[CoversClass(Fallback::class)]
 final class ProxyFactoryTest extends TestCase
 {
@@ -218,6 +221,17 @@ final class ProxyFactoryTest extends TestCase
         $this->expectException(BulkheadFullException::class);
 
         $this->call($proxy, 'enter');
+    }
+
+    public function testRateLimiterAttributeRejectsOverTheLimit(): void
+    {
+        $proxy = $this->factory()->wrap(new GuardedService());
+
+        self::assertSame('through', $this->call($proxy, 'throttled'));
+
+        $this->expectException(RateLimitExceededException::class);
+
+        $this->call($proxy, 'throttled');
     }
 
     public function testWrapRejectsClassesWithoutAttributes(): void
