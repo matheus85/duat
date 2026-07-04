@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-07-04
 
+The core is feature-complete: every policy from the original plan is in.
+
 ### Added
+
+- `RateLimiterPolicy`, a fixed window rate limiter shared across workers,
+  with `retryAfterSeconds` on rejection, `->rateLimiter()` on the fluent
+  builder and the `#[RateLimiter]` attribute. Brought forward from the
+  roadmap so the core ships whole.
 
 - `BulkheadPolicy` capping concurrent calls per resource, with a safety
   lease that heals slots leaked by dead processes, plus `->bulkhead()` on
@@ -22,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Package description no longer lists features that have not shipped.
+- Package description matches the shipped feature set.
 
 ## [0.1.0] - 2026-07-03
 

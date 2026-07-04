@@ -1,6 +1,6 @@
 {
     "name": "matheus85/duat",
-    "description": "Unified resilience patterns for modern PHP: retry, circuit breaker, timeout, bulkhead and fallback, with rate limiting on the roadmap. Zero required dependencies.",
+    "description": "Unified resilience patterns for modern PHP: retry, circuit breaker, timeout, bulkhead, rate limiter and fallback. Zero required dependencies.",
     "type": "library",
     "license": "MIT",
     "keywords": [

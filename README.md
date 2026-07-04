@@ -6,17 +6,17 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 Unified resilience patterns for modern PHP: retry, circuit breaker, timeout,
-bulkhead and fallback behind one fluent API or PHP 8 attributes. Zero
-required dependencies, no framework coupling, no HTTP client coupling. Duat
-wraps callables, nothing else.
+bulkhead, rate limiter and fallback behind one fluent API or PHP 8
+attributes. Zero required dependencies, no framework coupling, no HTTP
+client coupling. Duat wraps callables, nothing else.
 
 ```php
 use Duat\Duat;
 
-$user = Duat::for('github')
+$user = Duat::for('users-api')
     ->retry(maxAttempts: 3)
-    ->fallback(fn () => ['login' => 'octocat', 'source' => 'cache'])
-    ->call(fn () => json_decode(file_get_contents('https://api.github.com/users/octocat'), true));
+    ->fallback(fn () => ['name' => 'cached user', 'source' => 'fallback'])
+    ->call(fn () => json_decode(file_get_contents('https://jsonplaceholder.typicode.com/users/1'), true));
 ```
 
 In Egyptian mythology the Duat is the underworld the sun crosses every
@@ -41,13 +41,12 @@ built it.
 | Timeout (deadline)    | yes           | no      | per HTTP client            |
 | Fallback              | yes           | no      | yes                        |
 | Bulkhead              | yes           | no      | no                         |
-| Rate limiter          | planned       | no      | no                         |
+| Rate limiter          | yes           | no      | no                         |
 | PHP 8 attributes      | yes           | no      | no                         |
 | Required dependencies | none          | none    | HTTP client                |
 
 If you come from Java think Resilience4j, if you come from .NET think
-Polly. That toolbox, in PHP: everything marked yes above is shipped and
-tested, and the rate limiter is next in line.
+Polly. That toolbox, in PHP: every pattern above is shipped and tested.
 
 ## Install
 
@@ -124,12 +123,12 @@ $gateway->charge($order);
 ```
 
 Attribute order defines the pipeline order and `#[Fallback]` is always the
-outermost layer, exactly like the fluent builder. `#[Timeout]` and
-`#[Bulkhead]` work the same way. Attribute arguments only accept constant
-expressions, so backoff is configured with scalars (`backoffMs`, `capMs`,
-`jitter` and `backoff: BackoffType::Linear`). Shared state is keyed by
-`Class::method`; keep a single factory per process so every proxy shares
-one store.
+outermost layer, exactly like the fluent builder. `#[Timeout]`,
+`#[Bulkhead]` and `#[RateLimiter]` work the same way. Attribute arguments
+only accept constant expressions, so backoff is configured with scalars
+(`backoffMs`, `capMs`, `jitter` and `backoff: BackoffType::Linear`). Shared
+state is keyed by `Class::method`; keep a single factory per process so
+every proxy shares one store.
 
 ### The proxy trade-off, upfront
 
@@ -234,9 +233,25 @@ The active-call counter takes a safety lease when created, so slots leaked
 by a process that died mid-call heal themselves after `leaseSeconds`. Keep
 the lease comfortably above your slowest expected call.
 
+### Rate limiter
+
+```php
+->rateLimiter(maxCalls: 100, perSeconds: 60)
+```
+
+Fixed window: one shared counter per window, so the cap holds across every
+worker on the store. Exceeding it throws `RateLimitExceededException`
+carrying `retryAfterSeconds` until the next window opens. Rejected
+attempts count too.
+
+One honest caveat: fixed windows allow a burst of up to twice the limit
+right around a window boundary. Cheap and predictable; if that ever hurts
+your use case, open an issue and a sliding variant gets prioritized.
+
 ## Shared state
 
-Circuit breaker and bulkhead state has to live somewhere. Pick a store:
+Circuit breaker, bulkhead and rate limiter state has to live somewhere.
+Pick a store:
 
 | Store           | Backend                        | Atomicity                                     |
 | --------------- | ------------------------------ | --------------------------------------------- |
@@ -245,23 +260,25 @@ Circuit breaker and bulkhead state has to live somewhere. Pick a store:
 | `RedisStore`    | ext-redis or Predis            | atomic (Lua increments, SET NX leases)        |
 
 The default `InMemoryStore` does not cross PHP-FPM workers: each worker
-would run its own circuit and count its own bulkhead slots. Fine for CLI
-tools, queue workers and tests, but production web workloads want
-`->store(new RedisStore($client))`.
+would run its own circuit, count its own bulkhead slots and enforce its own
+rate limit. Fine for CLI tools, queue workers and tests, but production web
+workloads want `->store(new RedisStore($client))`.
 
 ## Events
 
 Pass any PSR-14 dispatcher with `->events($dispatcher)` and Duat emits
 readonly event objects: `RetryAttempted`, `CircuitOpened`,
 `CircuitHalfOpened`, `CircuitClosed`, `CallRejected`, `DeadlineExceeded`
-and `FallbackExecuted`. No dispatcher, no events, no overhead. The proxy
-factory takes the same dispatcher in its constructor.
+and `FallbackExecuted`. `CallRejected` carries a `RejectionReason` enum
+telling whether the circuit was open, the bulkhead was full or the rate
+limit was hit. No dispatcher, no events, no overhead. The proxy factory
+takes the same dispatcher in its constructor.
 
 ## Watch it live
 
 `examples/flaky-api` ships a dockerized API that alternates health and
-failure every 15 seconds, plus a demo script that crosses it with the full
-pipeline while printing every event:
+failure every 15 seconds, plus a demo script that crosses it with retry,
+circuit breaker, timeout and fallback while printing every event:
 
 ```bash
 cd examples/flaky-api
@@ -286,10 +303,10 @@ like that and finishes in a fraction of a second.
 
 ## Roadmap
 
-- **0.3**: first-class Laravel bridge as a separate package
+- **Next**: first-class Laravel bridge as a separate package
   (`matheus85/duat-laravel`): service provider, cache-backed stores, HTTP
   client macro, native events.
-- **Later**: rate limiter, mutation testing, benchmarks.
+- **Later**: mutation testing, benchmarks.
 
 ## License
 
