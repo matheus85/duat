@@ -61,6 +61,18 @@ jobs:
         env:
           REDIS_URL: redis://127.0.0.1:6379
 
+  mutation:
+    name: Mutation testing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: pcov
+      - run: composer install --prefer-dist --no-progress
+      - run: vendor/bin/infection --threads=max --min-msi=86 --no-progress
+
   coverage:
     name: Coverage
     runs-on: ubuntu-latest

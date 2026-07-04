@@ -23,6 +23,7 @@
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.75",
+        "infection/infection": "^0.34",
         "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^11.5 || ^12.0",
         "predis/predis": "^3.5",
@@ -46,6 +47,9 @@
         }
     },
     "config": {
+        "allow-plugins": {
+            "infection/extension-installer": true
+        },
         "sort-packages": true
     },
     "scripts": {
@@ -56,6 +60,10 @@
             "phpunit --coverage-html coverage --coverage-text"
         ],
         "stan": "phpstan analyse",
+        "infection": [
+            "@putenv XDEBUG_MODE=coverage",
+            "infection --threads=max"
+        ],
         "cs": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix"
     }
