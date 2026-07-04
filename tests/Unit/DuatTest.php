@@ -11,6 +11,7 @@ use Duat\Event\DeadlineExceeded;
 use Duat\Event\RetryAttempted;
 use Duat\Exception\BulkheadFullException;
 use Duat\Exception\CircuitOpenException;
+use Duat\Exception\RateLimitExceededException;
 use Duat\Exception\RetryExhaustedException;
 use Duat\Store\InMemoryStore;
 use Duat\Tests\Support\FakeClock;
@@ -228,6 +229,19 @@ final class DuatTest extends TestCase
             ->bulkhead(maxConcurrent: 1)
             ->store($store)
             ->call(static fn (): string => 'never');
+    }
+
+    public function testRateLimiterRejectsOverTheLimit(): void
+    {
+        $chain = $this->chain()
+            ->rateLimiter(maxCalls: 1, perSeconds: 10)
+            ->store(new InMemoryStore($this->clock));
+
+        self::assertSame('ok', $chain->call(static fn (): string => 'ok'));
+
+        $this->expectException(RateLimitExceededException::class);
+
+        $chain->call(static fn (): string => 'never');
     }
 
     public function testFallbackHandlerReceivesTheExceptionAndContext(): void

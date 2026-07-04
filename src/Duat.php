@@ -13,6 +13,7 @@ use Duat\Contract\StateStore;
 use Duat\Policy\BulkheadPolicy;
 use Duat\Policy\CircuitBreakerPolicy;
 use Duat\Policy\FallbackPolicy;
+use Duat\Policy\RateLimiterPolicy;
 use Duat\Policy\RetryPolicy;
 use Duat\Policy\TimeoutPolicy;
 use Duat\Store\InMemoryStore;
@@ -100,6 +101,15 @@ final class Duat
             cooldownSeconds: $cooldownSeconds,
             halfOpenMaxCalls: $halfOpenMaxCalls,
             recordOn: $recordOn,
+        ));
+    }
+
+    public function rateLimiter(int $maxCalls, int $perSeconds): self
+    {
+        return $this->withLayer(static fn (StateStore $store): Policy => new RateLimiterPolicy(
+            store: $store,
+            maxCalls: $maxCalls,
+            perSeconds: $perSeconds,
         ));
     }
 
